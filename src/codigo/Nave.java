@@ -23,11 +23,11 @@ public class Nave {
     private int anchoPantalla;
     
     public Nave(int _anchoPantalla){
-        try{
-            imagen = ImageIO.read(getClass().getResource("/imagenes/nave.png"));
-        }
-        catch (IOException ramon){
-        }
+//        try{
+//            imagen = ImageIO.read(getClass().getResource("/imagenes/nave.png"));
+//        }
+//        catch (IOException ramon){
+//        }
         anchoPantalla = _anchoPantalla;
     }
 

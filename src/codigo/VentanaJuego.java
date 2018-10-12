@@ -10,10 +10,14 @@ package codigo;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import javax.imageio.ImageIO;
 import javax.swing.Timer;
 
 /**
@@ -21,14 +25,28 @@ import javax.swing.Timer;
  * @author Jorge Cisneros
  */
 public class VentanaJuego extends javax.swing.JFrame {
-
+    
+    
     static int ANCHOPANTALLA = 800;
     static int ALTOPANTALLA = 600;
+    //cuantos marcianos van a salir en la pantalla
+    int filasMarcianos = 5;
+    int columnasMarcianos = 10;
     
     BufferedImage buffer = null;
     int contador = 0;
     Nave miNave = new Nave(ANCHOPANTALLA);
     Disparo miDisparo = new Disparo(ALTOPANTALLA);
+    Marciano miMarciano = new Marciano(ANCHOPANTALLA);
+    
+    //el array de dos dimensiones que guarda la lista de marcianos
+    Marciano [][] listaMarcianos = new Marciano[filasMarcianos][columnasMarcianos]; 
+    //dirección en la que se mueve el grupo de marcianos
+    boolean direccionMarcianos = false; 
+    
+    BufferedImage plantilla = null;
+    Image[] imagenes = new Image[30]; 
+    
     
     //bucle de animación del juego
     //en este caso, es un hilo de ejecución nuevo que se encarga
@@ -47,6 +65,23 @@ public class VentanaJuego extends javax.swing.JFrame {
      */
     public VentanaJuego() {
         initComponents();
+        //cargo la plantilla con todos los sprites de los marcianos
+        try{
+            plantilla = ImageIO.read(getClass().getResource("/imagenes/invaders2.png"));
+        }
+        catch (IOException e){}
+        
+        //guardo cada sprite en un Image individual. De esta forma es mas facil dibujarlos 
+        //dependiendo de lo que se necesite 
+        for (int i=0; i < 5; i++){
+            for (int j=0; j<4; j++){
+                //corto el trozo de 64x64 que corresponde a ese marciano
+                imagenes[i*4 + j] = plantilla.getSubimage(j*64+1, i*64+1, 64, 64);
+                //cambio el tamaño a 32x32
+                imagenes[i*4 +j] = imagenes[i*4+j].getScaledInstance(32,32,Image.SCALE_SMOOTH); 
+            }
+        }
+        imagenes[21]= plantilla.getSubimage(66+1, 320, 64, 32);
         
         //hay que quitar la opción "resizable" del jPanel para que se ajuste 
         //correctamente Creditos: Junior
@@ -55,12 +90,75 @@ public class VentanaJuego extends javax.swing.JFrame {
         buffer.createGraphics();
         miNave.x = ANCHOPANTALLA/2 - miNave.imagen.getWidth(this)/2;
         miNave.y = ALTOPANTALLA - miNave.imagen.getHeight(this) - 40;
+        miNave.imagen = imagenes[20];
+        
+        
+        //creamos el array de marcianos
+        for (int i=0; i<filasMarcianos; i++){
+            for (int j=0; j<columnasMarcianos; j++){
+                listaMarcianos[i][j] = new Marciano(ANCHOPANTALLA);
+                listaMarcianos[i][j].imagen = imagenes[2*i];
+                listaMarcianos[i][j].imagen2 = imagenes[2*i+1];
+                listaMarcianos[i][j].x = j* (15 + listaMarcianos[i][j].imagen.getWidth(null));
+                listaMarcianos[i][j].y = i* (10 + listaMarcianos[i][j].imagen.getHeight(null));
+
+            }
+        }
         
         //inicio el temporizador
         temporizador.start();
         
     }
 
+    private void pintaMarcianos(Graphics2D _g2) {
+        for (int i = 0; i < filasMarcianos; i++) {
+            for (int j = 0; j < columnasMarcianos; j++) {
+                if (listaMarcianos[i][j].vida) {
+                    listaMarcianos[i][j].mueve(direccionMarcianos);
+                    if (contador < 50) {
+                        _g2.drawImage(listaMarcianos[i][j].imagen, listaMarcianos[i][j].x, listaMarcianos[i][j].y, null);
+                    } else if (contador < 100) {
+                        _g2.drawImage(listaMarcianos[i][j].imagen2, listaMarcianos[i][j].x, listaMarcianos[i][j].y, null);
+                    } else {
+                        contador = 0;
+                    }
+                    if (listaMarcianos[i][j].x == ANCHOPANTALLA - listaMarcianos[i][j].imagen.getWidth(null) || listaMarcianos[i][j].x == 0) {
+                        direccionMarcianos = !direccionMarcianos;
+                        for (int k = 0; k < filasMarcianos; k++) {
+                            for (int m = 0; m < columnasMarcianos; m++) {
+                                listaMarcianos[k][m].y += listaMarcianos[k][m].imagen.getHeight(null);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private void chequeaColision(){
+        Rectangle2D.Double rectanguloMarciano = new Rectangle2D.Double();
+        Rectangle2D.Double rectanguloDisparo = new Rectangle2D.Double();
+        rectanguloDisparo.setFrame(miDisparo.getX(), miDisparo.getY(),
+                miDisparo.imagen.getWidth(null), miDisparo.imagen.getHeight(null));
+        for (int i = 0; i < filasMarcianos; i++) {
+            for (int j = 0; j < columnasMarcianos; j++) {
+                if (listaMarcianos[i][j].vida) {
+                    rectanguloMarciano.setFrame(listaMarcianos[i][j].x,
+                            listaMarcianos[i][j].y,
+                            listaMarcianos[i][j].imagen.getWidth(null),
+                            listaMarcianos[i][j].imagen.getHeight(null));
+                    if (rectanguloDisparo.intersects(rectanguloMarciano)) {
+                        //si esto es true es que los dos rectangulos han chocado en algun punto
+                        listaMarcianos[i][j].vida = false;
+                        //recolocamos al marciano y al disparo muy por debajo de la pantalla
+                        miDisparo.setY(2000);
+                        miDisparo.setDisparado(false);
+                    }
+                }
+            }
+        }
+
+    }
     
     private void bucleDelJuego(){
         //el bucle de animación gobierna el redibujado de los objetos en 
@@ -72,14 +170,21 @@ public class VentanaJuego extends javax.swing.JFrame {
         
         ////////////////////////////////////////////////////////////////////////
         //redibujamos cada elemento en su nueva posición en el buffer
-         g2.drawImage(miNave.imagen, miNave.x, miNave.y, null);
+        
                
-        //contador++;
-        miDisparo.mueve();
+        contador++;
+        if (miDisparo.isDisparado()){
+            miDisparo.mueve();
+        }
         g2.drawImage(miDisparo.imagen, miDisparo.getX(), miDisparo.getY(), null);
         //pinto la nave
+        
         miNave.mueve();
-
+        g2.drawImage(miNave.imagen, miNave.x, miNave.y, null);
+        
+        pintaMarcianos(g2);
+        
+        chequeaColision();
         
         ////////////////////////////////////////////////////////////////////////
         
@@ -89,9 +194,7 @@ public class VentanaJuego extends javax.swing.JFrame {
         
         
         
-        
     }
-    
     
     
     

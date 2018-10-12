@@ -28,7 +28,7 @@ public class Disparo {
 
     public void mueve(){
         if (y>0){
-            y--;
+            y-=10;
         }
     }
     
